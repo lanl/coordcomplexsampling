@@ -5,7 +5,20 @@ import argparse
 import pathlib
 
 
-def perform_swap(swapdict, writeout=False, output_path="output_sdfs", call=0):
+def perform_swap(swapdict, writeout=False, output_path="output_sdfs",
+                 call=0, skip_checks=False):
+    """perform the swap
+
+    Args:
+        swapdict (dict): swap dictionary
+        writeout (bool, optional): write sdf file. Defaults to False.
+        output_path (str, optional): where to write out. Defaults to "output_sdfs".
+        call (int, optional): number of call attempt. Defaults to 0.
+        skip_checks (bool, optional): return regardless of distances.
+
+    Returns:
+        sdfstr : init/final functionalized sdf str.
+    """
     import os
 
     os.environ["OMP_NUM_THREADS"] = "1"
@@ -58,10 +71,11 @@ def perform_swap(swapdict, writeout=False, output_path="output_sdfs", call=0):
             xtb_opt=swapdict["swap_xtb_opt"],
         )
     init_mol.dist_sanity_checks(
-        smallest_dist_cutoff=0.7
+        smallest_dist_cutoff=0.7,
+        min_dist_cutoff=10,
     )  # Check that atoms are not overlapping
     init_mol.graph_sanity_checks()
-    if init_mol.dists_sane:
+    if init_mol.dists_sane or skip_checks:
         init_sdf = init_mol.write_sdf("init", writestring=True)
         final_sdf = final_mol.write_sdf("final", writestring=True)
         outstr = init_sdf + final_sdf
