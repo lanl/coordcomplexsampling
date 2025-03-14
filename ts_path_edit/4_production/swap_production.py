@@ -3,7 +3,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 import argparse
 import pathlib
+import numpy as np
 
+np.random.seed(42)
 
 def perform_swap(swapdict, writeout=False, output_path="output_sdfs",
                  call=0, skip_checks=False):
@@ -75,21 +77,37 @@ def perform_swap(swapdict, writeout=False, output_path="output_sdfs",
         min_dist_cutoff=10,
     )  # Check that atoms are not overlapping
     init_mol.graph_sanity_checks()
-    if init_mol.dists_sane or skip_checks:
+    final_mol.dist_sanity_checks(
+        smallest_dist_cutoff=0.7,
+        min_dist_cutoff=10,
+    )  # Check that atoms are not overlapping
+    final_mol.graph_sanity_checks()
+    if init_mol.dists_sane or final_mol.dists_sane or skip_checks:
         init_sdf = init_mol.write_sdf("init", writestring=True)
         final_sdf = final_mol.write_sdf("final", writestring=True)
-        outstr = init_sdf + final_sdf
-        outname = swapdict["rxn_uid"] + ".sdf"
+        if init_mol.dists_sane and (not final_mol.dists_sane):
+            outstr = init_sdf + final_sdf
+            outname = swapdict["rxn_uid"] + ".sdf"
+        elif final_mol.dists_sane and (not init_mol.dists_sane):
+            outstr = final_sdf + init_sdf
+            outname = swapdict["rxn_uid"] + '_rev.sdf'
+        else:  # Randomly sample forward vs reverse.
+            if np.random.randint(0, 2) == 1:
+                outstr = init_sdf + final_sdf
+                outname = swapdict["rxn_uid"] + ".sdf"
+            else:
+                outstr = final_sdf + init_sdf
+                outname = swapdict["rxn_uid"] + '_rev.sdf'
         if writeout:
             tp = pathlib.Path(output_path)
             if not tp.exists():
                 tp.mkdir(exist_ok=True, parents=True)
             with open(tp / outname, "w") as file1:
                 file1.write(outstr)
-            return "Done"
+            return ("Done", None)
         else:
             # print(outname)
-            return outstr
+            return (outname, outstr)
     elif call < 11:
         out = perform_swap(
             swapdict, writeout=writeout, output_path=output_path, call=call + 1
@@ -107,9 +125,9 @@ def perform_swap(swapdict, writeout=False, output_path="output_sdfs",
                     + swapdict["rxn_uid"]
                     + " FAILED AFTER 10X attempts."
                 )
-            return "Done"
+            return ("Done", None)
         else:
-            return None
+            return ("Done", None)
 
 
 def parse_args():
@@ -119,7 +137,8 @@ def parse_args():
     )
     parser.add_argument("--output_path", default="output_sdfs")
     parser.add_argument("--nprocs", default=12, type=int)
-    parser.add_argument("--chunksize", default=5000, type=int)
+    parser.add_argument("--rseed", default=42, type=int)
+    parser.add_argument("--downsample", action="store_true")
     parser.add_argument("--writeout", action="store_true")
     return parser.parse_args()
 
@@ -132,6 +151,9 @@ if __name__ == "__main__":
 
     print(args.__dict__)
 
+    # Set random seed.
+    np.random.seed(args.rseed)
+
     if args.writeout:
         done_lst = [x.name.replace(".sdf", "") for x in outpath.rglob("*.sdf")]
         done_lst += [x.name.replace(".txt", "") for x in outpath.rglob("*.txt")]
@@ -139,6 +161,8 @@ if __name__ == "__main__":
         done_lst = []
 
     df = pd.read_pickle(args.sample_dataframe)
+    if args.downsample:
+        df = df.iloc[0:5000]
 
     with tqdm(total=(df.shape[0] - len(done_lst))) as pbar:
         with ProcessPoolExecutor(max_workers=args.nprocs) as exe:
@@ -158,8 +182,11 @@ if __name__ == "__main__":
                     futs.append(fut)
             for x in as_completed(futs):
                 if not args.writeout:
+                    newname, sdf = x.result()
                     donedicts.append(
-                        {"sdf_name": x.savename, "sdf_file": x.result()}
+                        {"orig_name": x.savename,
+                         "new_name": newname,
+                         "sdf_file": sdf}
                     )
                 pbar.update(1)
 
