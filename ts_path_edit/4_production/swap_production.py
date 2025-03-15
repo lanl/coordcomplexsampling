@@ -7,6 +7,7 @@ import numpy as np
 
 np.random.seed(42)
 
+
 def perform_swap(swapdict, writeout=False, output_path="output_sdfs",
                  call=0, skip_checks=False):
     """perform the swap
