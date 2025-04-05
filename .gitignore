@@ -10,7 +10,7 @@ __pycache__/
 1_CSD_compatable_structures.csv
 meta_production_sample.pkl
 metal_sample_dataframe_acts.pkl
-enumerated_rxns.pkl
+enumerated_rxns*.pkl
 
 # Distribution / packaging
 .Python

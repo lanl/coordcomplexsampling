@@ -1,0 +1,18 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite it using the following metadata."
+title: "coordcomplexsampling"
+version: "1.0.0"
+date-released: 2025-04-04
+
+authors:
+  - family-names: Gilbert Taylor 
+    given-names: Michael
+    orcid: "https://orcid.org/0000-0003-4327-2746"
+
+repository-code: "https://github.com/lanl/coordcomplexsampling"
+license: "MIT"
+
+keywords:
+  - chemistry
+  - metal complexes
+  - reaction chemistry
